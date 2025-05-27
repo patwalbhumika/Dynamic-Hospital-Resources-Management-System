@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hospital Resource Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f9fafb;
+            margin: 0;
+            padding: 0 0 40px 0;
+            color: #333;
+        }
+        h1 {
+            margin: 30px 0 10px 0;
+            text-align: center;
+            color: #2d3e50;
+        }
+        .dashboard-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        .chart-wrapper {
+            flex: 1 1 400px;
+            max-width: 450px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgb(0 0 0 / 0.08);
+        }
+        #allocationForm {
+            max-width: 450px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgb(0 0 0 / 0.08);
+            margin: 0 auto 30px auto;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: 600;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1.5px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 20px;
+            padding: 12px 18px;
+            background-color: #4a90e2;
+            color: white;
+            font-weight: 700;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #357abd;
+        }
+        #resultBox {
+            margin-top: 20px;
+            font-weight: 600;
+            min-height: 60px;
+        }
+        .emergency-btn {
+            background: #e74c3c;
+            color: #fff;
+            margin-left: 10px;
+        }
+        .emergency-btn:hover {
+            background: #c0392b;
+        }
+        .patient-list {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgb(0 0 0 / 0.08);
+            padding: 20px;
+        }
+        .patient-list h3 {
+            margin-top: 0;
+        }
+        .patient-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .patient-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .patient-list li:last-child {
+            border-bottom: none;
+        }
+        .resource-list {
+            max-width: 450px;
+            margin: 0 auto 30px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgb(0 0 0 / 0.08);
+            padding: 20px;
+        }
+        .resource-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .resource-list li {
+            padding: 6px 0;
+        }
+        @media (max-width: 900px) {
+            .dashboard-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .chart-wrapper,
+            #allocationForm {
+                max-width: 95vw;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Hospital Resource Dashboard</h1>
+    <div class="dashboard-container">
+        <div class="chart-wrapper">
+            <h3>Patient Risk Scores</h3>
+            <canvas id="riskChart" width="400" height="240"></canvas>
+        </div>
+        <div class="chart-wrapper">
+            <h3>Resource Availability</h3>
+            <canvas id="resourcesChart" width="400" height="240"></canvas>
+        </div>
+    </div>
+
+    <div class="resource-list">
+        <h3>Available Resources</h3>
+        <ul>
+            <li>Beds: {{ available[0] }}</li>
+            <li>Ventilators: {{ available[1] }}</li>
+            <li>Doctors: {{ available[2] }}</li>
+        </ul>
+    </div>
+
+    <form id="allocationForm">
+    <h2>Allocate Resources</h2><br>
+    <div style="margin-bottom: 12px;">
+        <label for="patientName"><b>Patient Name:</b></label>
+        <input type="text" id="patientName" placeholder="Enter patient name" required />
+    </div>
+    <div style="margin-bottom: 12px;">
+        <label for="age"><b>Age:</b></label>
+        <input type="number" id="age" min="0" placeholder="Enter age" required />
+    </div>
+    <div style="margin-bottom: 12px;">
+        <label for="bp"><b>Blood Pressure (bp):</b></label>
+        <input type="number" id="bp" min="0" placeholder="Enter BP" required />
+    </div>
+    <div style="margin-bottom: 12px;">
+        <label for="heart_rate"><b>Heart Rate:</b></label>
+        <input type="number" id="heart_rate" min="0" placeholder="Enter heart rate" required />
+    </div>
+    <div style="margin-bottom: 12px;">
+        <label for="comorbidity_score"><b>Comorbidity Score:</b></label>
+        <input type="number" id="comorbidity_score" min="0" placeholder="Enter comorbidity score" required />
+    </div>
+    <button type="submit">Allocate</button>
+    <button type="button" class="emergency-btn" id="emergencyBtn">Emergency Interrupt</button>
+    <div id="resultBox"></div>
+</form>
+
+    <div class="patient-list">
+        <h3>Allocated Patients</h3>
+        <ul id="allocatedList"></ul>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let riskChart, resourcesChart;
+
+        function renderCharts(patients, available) {
+            if (riskChart) riskChart.destroy();
+            if (resourcesChart) resourcesChart.destroy();
+
+            // Bar chart for risk scores
+            const riskCtx = document.getElementById("riskChart").getContext("2d");
+            riskChart = new Chart(riskCtx, {
+                type: "bar",
+                data: {
+                    labels: patients.map(p => p.name),
+                    datasets: [{
+                        label: "Risk Score",
+                        data: patients.map(p => p.risk),
+                        backgroundColor: "rgba(255, 99, 132, 0.7)",
+                        borderColor: "rgba(255, 99, 132, 1)",
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: { stepSize: 0.1 }
+                        }
+                    }
+                }
+            });
+
+            // Pie chart for resources
+            const resCtx = document.getElementById("resourcesChart").getContext("2d");
+            resourcesChart = new Chart(resCtx, {
+                type: "pie",
+                data: {
+                    labels: ["Beds", "Ventilators", "Doctors"],
+                    datasets: [{
+                        label: "Available Resources",
+                        data: available,
+                        backgroundColor: [
+                            "rgba(54, 162, 235, 0.7)",
+                            "rgba(255, 206, 86, 0.7)",
+                            "rgba(75, 192, 192, 0.7)"
+                        ],
+                        borderColor: ["#3664bb", "#c2a834", "#4b9c9c"],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        }
+
+        function updatePatientList(patients) {
+            const list = document.getElementById("allocatedList");
+            list.innerHTML = "";
+            patients.forEach(p => {
+                const li = document.createElement("li");
+                li.textContent = `${p.name} (Risk: ${p.risk})`;
+                list.appendChild(li);
+            });
+        }
+
+        async function fetchDashboard() {
+            const res = await fetch('/status');
+            const data = await res.json();
+            renderCharts(data.patients, data.available);
+            updatePatientList(data.patients);
+
+            // Update resource list
+            document.querySelector('.resource-list ul').innerHTML = `
+                <li>Beds: ${data.available[0]}</li>
+                <li>Ventilators: ${data.available[1]}</li>
+                <li>Doctors: ${data.available[2]}</li>
+            `;
+        }
+
+        fetchDashboard();
+        setInterval(fetchDashboard, 5000);
+
+        document.getElementById("allocationForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            const name = document.getElementById("patientName").value;
+            const age = parseInt(document.getElementById("age").value);
+            const bp = parseInt(document.getElementById("bp").value);
+            const heart_rate = parseInt(document.getElementById("heart_rate").value);
+            const comorbidity_score = parseInt(document.getElementById("comorbidity_score").value);
+
+            const payload = {
+                name,
+                age,
+                bp,
+                heart_rate,
+                comorbidity_score
+            };
+
+            const resultBox = document.getElementById("resultBox");
+            resultBox.innerHTML = "<em>Allocating resources, please wait...</em>";
+
+            try {
+                const response = await fetch("/allocate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    resultBox.innerHTML = `<span style="color:green;">${result.message}</span>`;
+                    fetchDashboard();
+                } else {
+                    resultBox.innerHTML = `<span style="color:red;">${result.message}</span>`;
+                }
+            } catch (err) {
+                resultBox.innerHTML = `<span style="color:red;">Error: ${err.message}</span>`;
+            }
+        });
+
+        document.getElementById("emergencyBtn").addEventListener("click", async function () {
+            const name = prompt("Enter emergency patient name:");
+            if (!name) return;
+            const resultBox = document.getElementById("resultBox");
+            resultBox.innerHTML = "<em>Processing emergency allocation...</em>";
+            try {
+                const response = await fetch("/emergency", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    resultBox.innerHTML = `<span style="color:green;">${result.message}</span>`;
+                    fetchDashboard();
+                } else {
+                    resultBox.innerHTML = `<span style="color:red;">${result.message}</span>`;
+                }
+            } catch (err) {
+                resultBox.innerHTML = `<span style="color:red;">Error: ${err.message}</span>`;
+            }
+        });
+    </script>
+</body>
+</html>
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Hospital Resource Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Hospital Resource Dashboard</h1>
+    <div>
+        <h3>Available Resources</h3>
+        <ul>
+            <li>Beds: {{ available[0] }}</li>
+            <li>Ventilators: {{ available[1] }}</li>
+            <li>Doctors: {{ available[2] }}</li>
+        </ul>
+    </div>
+    <div>
+        <h3>Allocated Patients</h3>
+        <ul>
+            {% for p in patients %}
+                <li>{{ p.name }} (Risk: {{ p.risk }})</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <canvas id="riskChart" width="400" height="200"></canvas>
+    <canvas id="resourcesChart" width="400" height="200"></canvas>
+    <script>
+        const patients = {{ patients | tojson }};
+        const available = {{ available | tojson }};
+        // Risk Bar Chart
+        new Chart(document.getElementById('riskChart'), {
+            type: 'bar',
+            data: {
+                labels: patients.map(p => p.name),
+                datasets: [{
+                    label: 'Risk Score',
+                    data: patients.map(p => p.risk),
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)'
+                }]
+            }
+        });
+        // Resource Pie Chart
+        new Chart(document.getElementById('resourcesChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Beds', 'Ventilators', 'Doctors'],
+                datasets: [{
+                    label: 'Available Resources',
+                    data: available,
+                    backgroundColor: [
+                        "rgba(54, 162, 235, 0.7)",
+                        "rgba(255, 206, 86, 0.7)",
+                        "rgba(75, 192, 192, 0.7)"
+                    ]
+                }]
+            }
+        });
+    </script>
+</body>
+</html> -->
